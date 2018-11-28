@@ -5,6 +5,8 @@
 #include <openssl/sha.h>
 #include <iostream>
 
+#include <fc_light/crypto/base58.hpp>
+
 std::string bintohex (std::string const &str, bool asNum);
 std::string p2pkh_to_address(std::string const &str);
 std::string p2sh_to_address(std::string const &str);
@@ -182,9 +184,13 @@ std::string bitcoin_transaction_t::vout_t::toJSON() const {
 	std::string res;
 	res = " { ";
 	if (script_pub_key().length() == 25 && script_pub_key().substr(0, 3) == "\x76\xa9\x14" && script_pub_key().substr(23,2) == "\x88\xac") {
-		res += "\"address\" : \"" + bintohex(p2pkh_to_address(script_pub_key().substr(3, 20)), false) + "\", ";
+//		res += "\"address\" : \"" + bintohex(p2pkh_to_address(script_pub_key().substr(3, 20)), false) + "\", ";
+		std::string binaddr = p2pkh_to_address(script_pub_key().substr(3, 20));
+		res += "\"address\" : \"" + fc_light::to_base58(binaddr.data(), binaddr.size()) + "\", ";
 	} else if (script_pub_key().length() == 23 && script_pub_key().substr(0, 2) == "\xa9\x14" && (uint8_t)script_pub_key()[22] == 0x87) {
-		res += "\"address\" : \"" + bintohex(p2sh_to_address(script_pub_key().substr(2, 20)), false) + "\", ";
+//		res += "\"address\" : \"" + bintohex(p2sh_to_address(script_pub_key().substr(2, 20)), false) + "\", ";
+		std::string binaddr = p2sh_to_address(script_pub_key().substr(2, 20));
+		res += "\"address\" : \"" + fc_light::to_base58(binaddr.data(), binaddr.size()) + "\", ";
 //	} else {
 //		std::cout << script_pub_key().length() << std::endl;
 //		std::cout << std::hex << (uint32_t)(uint8_t)script_pub_key()[0] << (uint32_t)(uint8_t)script_pub_key()[1] << std::endl;
