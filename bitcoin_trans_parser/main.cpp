@@ -11,11 +11,11 @@ int main () {
 			std::cout << "ERROR" << std::endl;
 			return 0;
 		} else {
-			std::cout << "Ok" << std::endl;
+//			std::cout << "Ok" << std::endl;
 		}
 		kaitai::kstream ks(&fsstr);
 		bitcoin_transaction_t data(&ks);
-		std::cout << data.version() << std::endl;
+//		std::cout << data.version() << std::endl;
 		std::cout << data.toJSON() << std::endl;
 		fsstr.close();
 	} catch (std::exception &err) {
