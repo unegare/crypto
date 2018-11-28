@@ -13,6 +13,5 @@ def p2sh_to_address(x):
 
 print(p2pkh_to_address('e1d5c3b5919b5c9249469ddedd4a0ed10c5884e0').encode('hex'))
 
-
 print(p2sh_to_address('2fd602e65a8da462e1871cc3a0224f730cd79269').encode('hex'))
 
