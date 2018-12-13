@@ -1,5 +1,4 @@
-#ifndef BITCOIN_TRANSACTION_H_
-#define BITCOIN_TRANSACTION_H_
+#pragma once
 
 // This is a generated file! Please edit source .ksy file and use kaitai-struct-compiler to rebuild
 
@@ -30,6 +29,11 @@ public:
         SIGHASH_TYPE_SIGHASH_NONE = 2,
         SIGHASH_TYPE_SIGHASH_SINGLE = 3,
         SIGHASH_TYPE_SIGHASH_ANYONECANPAY = 80
+    };
+
+    enum end_of_vin_seq_t {
+        END_OF_VIN_SEQ_FE = 4278190079,
+        END_OF_VIN_SEQ_FF = 4294967295
     };
 
     bitcoin_transaction_t(kaitai::kstream* p__io, kaitai::kstruct* p__parent = 0, bitcoin_transaction_t* p__root = 0);
@@ -79,9 +83,9 @@ public:
         bitcoin_transaction_t* _root() const { return m__root; }
         bitcoin_transaction_t* _parent() const { return m__parent; }
 
-	//--------------------------------------------
-	//--------------------------------------------
-	std::string toJSON() const;
+        //--------------------------------------------
+        //--------------------------------------------
+        std::string toJSON() const;
     };
 
     class public_key_t : public kaitai::kstruct {
@@ -136,7 +140,7 @@ public:
         uint32_t m_output_id;
         uint8_t m_script_len;
         std::string m_script_sig;
-        std::string m_end_of_vin;
+        end_of_vin_seq_t m_end_of_vin;
         bitcoin_transaction_t* m__root;
         bitcoin_transaction_t* m__parent;
 
@@ -167,13 +171,13 @@ public:
         /**
          * Magic number indicating the end of the current input.
          */
-        std::string end_of_vin() const { return m_end_of_vin; }
+        end_of_vin_seq_t end_of_vin() const { return m_end_of_vin; }
         bitcoin_transaction_t* _root() const { return m__root; }
         bitcoin_transaction_t* _parent() const { return m__parent; }
 
-	//-------------------------------------
-	//-------------------------------------
-	std::string toJSON() const;
+        //--------------------------------------------
+        //--------------------------------------------
+        std::string toJSON() const;
     };
 
     class script_signature_t : public kaitai::kstruct {
@@ -316,9 +320,7 @@ public:
     bitcoin_transaction_t* _root() const { return m__root; }
     kaitai::kstruct* _parent() const { return m__parent; }
 
-    //-------------------------------------
-    //-------------------------------------
+    //--------------------------------------------
+    //--------------------------------------------
     std::string toJSON() const;
 };
-
-#endif  // BITCOIN_TRANSACTION_H_

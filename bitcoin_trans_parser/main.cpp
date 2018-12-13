@@ -6,7 +6,7 @@
 
 int main () {
 	try {
-		std::ifstream fsstr("trans.bin", std::ifstream::binary);
+		std::ifstream fsstr("trans2.bin", std::ifstream::binary);
 		if (!fsstr.is_open()) {
 			std::cout << "ERROR" << std::endl;
 			return 0;

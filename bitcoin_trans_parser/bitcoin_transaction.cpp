@@ -12,6 +12,7 @@ std::string p2pkh_to_address(std::string const &str);
 std::string p2sh_to_address(std::string const &str);
 
 
+
 bitcoin_transaction_t::bitcoin_transaction_t(kaitai::kstream* p__io, kaitai::kstruct* p__parent, bitcoin_transaction_t* p__root) : kaitai::kstruct(p__io) {
     m__parent = p__parent;
     m__root = this;
@@ -91,7 +92,7 @@ void bitcoin_transaction_t::vin_t::_read() {
     m_output_id = m__io->read_u4le();
     m_script_len = m__io->read_u1();
     m_script_sig = m__io->read_bytes(script_len());
-    m_end_of_vin = m__io->ensure_fixed_contents(std::string("\xFE\xFF\xFF\xFF", 4));
+    m_end_of_vin = static_cast<bitcoin_transaction_t::end_of_vin_seq_t>(m__io->read_u4le());
 }
 
 bitcoin_transaction_t::vin_t::~vin_t() {
@@ -138,7 +139,6 @@ void bitcoin_transaction_t::der_signature_t::_read() {
 bitcoin_transaction_t::der_signature_t::~der_signature_t() {
 }
 
-
 std::string bitcoin_transaction_t::toJSON() const {
 	std::string res;
 	res = " { ";
@@ -170,12 +170,14 @@ std::string bitcoin_transaction_t::toJSON() const {
 
 std::string bitcoin_transaction_t::vin_t::toJSON() const {
 	std::string res;
+	uint32_t eov = end_of_vin();
+	std::string eov_str((const char *)&eov, 4);
 	res = " { ";
-	res += "\"txid\" : \"0x" + bintohex(txid(), true) + "\", ";
+	res += "\"txid\" : \"" + bintohex(txid(), false) + "\", ";
 	res += "\"output_id\" : \"" + std::to_string(output_id()) + "\", ";
 	res += "\"script_len\" : \"" + std::to_string((uint32_t)script_len()) + "\", ";
 	res += "\"script_sig\" : \"" + bintohex(script_sig(), false) + "\", ";
-	res += "\"end_of_vin\" : \"" + bintohex(end_of_vin(), false) + "\"";
+	res += "\"end_of_vin\" : \"" + bintohex(eov_str, false) + "\"";
 	res += " } ";
 	return res;
 }

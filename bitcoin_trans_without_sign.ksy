@@ -58,7 +58,8 @@ types:
           https://en.bitcoin.it/wiki/Transa3ction#Input
           https://en.bitcoin.it/wiki/Script
       - id: end_of_vin
-        contents: [0xfe, 0xff, 0xff, 0xff]
+        type: u4
+        enum: end_of_vin_seq
         doc: |
           Magic number indicating the end of the current input.
   vout:
@@ -146,3 +147,6 @@ enums:
     2: sighash_none
     3: sighash_single
     80: sighash_anyonecanpay
+  end_of_vin_seq:
+    0xfeffffff: fe
+    0xffffffff: ff
