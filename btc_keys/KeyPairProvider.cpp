@@ -23,7 +23,7 @@ KeyPairProvider::~KeyPairProvider() {
   EC_KEY_free(eckey);
 }
 
-std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getRandomPair(bool compressed = 1) const {
+std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getRandomPair(bool compressed) const {
   const EC_GROUP *group = EC_KEY_get0_group(eckey); 
   EC_POINT *pub_key = EC_POINT_new(group);
   BIGNUM *priv_key = BN_new();
@@ -40,10 +40,10 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getRandomPair(bool comp
 
   EC_POINT_free (pub_key);
 
-  return KeyPair(priv_key, pub_bn, compressed);
+  return pub_bn ? std::make_optional(KeyPair(priv_key, pub_bn, compressed)) : std::nullopt;
 }
 
-std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::string_view priv_hex, bool compressed = 1) const {
+std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::string_view priv_hex, bool compressed) const {
   const EC_GROUP *group = EC_KEY_get0_group(eckey); 
   EC_POINT *pub_key = EC_POINT_new(group);
   BIGNUM *priv_key = BN_new();
@@ -60,7 +60,7 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::st
 
   EC_POINT_free (pub_key);
 
-  return KeyPair(priv_key, pub_bn, compressed);
+  return pub_bn ? std::make_optional(KeyPair(priv_key, pub_bn, compressed)) : std::nullopt;
 }
 
 KeyPairProvider::KeyPair::KeyPair(BIGNUM *_priv, BIGNUM *_pub, bool _compressed): priv(_priv), pub(_pub), compressed(_compressed), priv_hex(NULL), pub_hex(NULL), wif(NULL), p2pkh_b58check(NULL) {
@@ -124,6 +124,7 @@ std::optional<std::string_view> KeyPairProvider::KeyPair::getWIF() const {
     return std::nullopt;
   }
   if (!SHA256_Init(&sha256) || !SHA256_Update(&sha256, hash, SHA256_DIGEST_LENGTH) || !SHA256_Final(hash, &sha256)) {
+    free(bin);
     return std::nullopt;
   }
 
@@ -137,6 +138,8 @@ std::optional<std::string_view> KeyPairProvider::KeyPair::getWIF() const {
   }
   if (!b58enc(wif, &b58sz, bin, len + 1 + (compressed ? 1 : 0) + 4)) {
     free(bin);
+    free(wif);
+    wif = NULL;
     return std::nullopt;
   }
 
@@ -154,9 +157,10 @@ std::optional<std::string_view> KeyPairProvider::KeyPair::getP2PKH() const {
   if (!bin) {
     return std::nullopt;
   }
-  BN_bn2bin(pub, bin);
-
-
+  if (!BN_bn2bin(pub, bin)) {
+    free(bin);
+    return std::nullopt;
+  }
 
   SHA256_CTX sha256;
   if (!SHA256_Init(&sha256) || !SHA256_Update(&sha256, bin, len) || !SHA256_Final(hash +1, &sha256)) {
@@ -190,6 +194,8 @@ std::optional<std::string_view> KeyPairProvider::KeyPair::getP2PKH() const {
   }
 
   if (!b58enc(p2pkh_b58check, &p2pkh_len, hash, RIPEMD160_DIGEST_LENGTH + 1 + 4)) {
+    free(p2pkh_b58check);
+    p2pkh_b58check = NULL;
     return std::nullopt;
   }
 
@@ -197,8 +203,9 @@ std::optional<std::string_view> KeyPairProvider::KeyPair::getP2PKH() const {
 }
 
 std::ostream& operator<< (std::ostream &os, const KeyPairProvider::KeyPair &k) {
-  os << k.getPrivHex().value_or("Err") << "\n" << k.getPubHex().value_or("Err") << "\n";
-  os << "WIF: " << k.getWIF().value_or("Err") << "\n";
-  os << "P2PKH: " << k.getP2PKH().value_or("Err") << "\n";
+  os << "priv_hex: " << k.getPrivHex().value_or("Err") << "\n"
+     << "pub_hex: " << k.getPubHex().value_or("Err") << "\n"
+     << "WIF: " << k.getWIF().value_or("Err") << "\n"
+     << "P2PKH: " << k.getP2PKH().value_or("Err") << "\n";
   return os;
 }

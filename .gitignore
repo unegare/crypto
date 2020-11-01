@@ -1,2 +1,4 @@
-.swp
+*.swp
+*.o
+*.out
 btc_keys/libbase58

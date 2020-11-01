@@ -33,8 +33,8 @@ public:
       std::optional<std::string_view> getP2PKH() const;
   } KeyPair;
 
-  std::optional<KeyPair> getRandomPair(bool compressed) const;
-  std::optional<KeyPair> getPairWithPriv(std::string_view priv_hex, bool compressed) const;
+  std::optional<KeyPair> getRandomPair(bool compressed = 1) const;
+  std::optional<KeyPair> getPairWithPriv(std::string_view priv_hex, bool compressed = 1) const;
 };
 
 std::ostream& operator<< (std::ostream &os, const KeyPairProvider::KeyPair &k);
