@@ -6,7 +6,6 @@
 
 #include <openssl/obj_mac.h>
 #include <openssl/sha.h>
-#include <openssl/ossl_typ.h>
 #include <openssl/ripemd.h>
 
 #include "libbase58/libbase58.h"
