@@ -23,7 +23,7 @@ KeyPairProvider::~KeyPairProvider() {
 }
 
 std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getRandomPair(bool compressed) const {
-  const EC_GROUP *group = EC_KEY_get0_group(eckey); 
+  const EC_GROUP *group = EC_KEY_get0_group(eckey);
   EC_POINT *pub_key = EC_POINT_new(group);
   BIGNUM *priv_key = BN_new();
 
@@ -32,20 +32,27 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getRandomPair(bool comp
 //  EC_KEY_set_private_key(eckey, priv_key);
 
   if (!EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx)) {
-    return std::nullopt; 
+    EC_POINT_free(pub_key);
+    BN_free(priv_key);
+    return std::nullopt;
   }
 
 //  EC_KEY_set_public_key(eckey, pub_key);
 
   BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, ctx);
+  if (!pub_bn) {
+    EC_POINT_free(pub_key);
+    BN_free(priv_key);
+    return std::nullopt;
+  }
 
   EC_POINT_free (pub_key);
 
-  return pub_bn ? std::make_optional(KeyPair(priv_key, pub_bn, compressed)) : std::nullopt;
+  return KeyPair(priv_key, pub_bn, compressed);
 }
 
 std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::string_view priv_hex, bool compressed) const {
-  const EC_GROUP *group = EC_KEY_get0_group(eckey); 
+  const EC_GROUP *group = EC_KEY_get0_group(eckey);
   EC_POINT *pub_key = EC_POINT_new(group);
   BIGNUM *priv_key = BN_new();
 
@@ -54,16 +61,23 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::st
 //  EC_KEY_set_private_key(eckey, priv_key);
 
   if (!EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx)) {
-    return std::nullopt; 
+    EC_POINT_free(pub_key);
+    BN_free(priv_key);
+    return std::nullopt;
   }
 
 //  EC_KEY_set_public_key(eckey, pub_key);
 
   BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, ctx);
+  if (!pub_bn) {
+    EC_POINT_free(pub_key);
+    BN_free(priv_key);
+    return std::nullopt;
+  }
 
   EC_POINT_free (pub_key);
 
-  return pub_bn ? std::make_optional(KeyPair(priv_key, pub_bn, compressed)) : std::nullopt;
+  return KeyPair(priv_key, pub_bn, compressed);
 }
 
 KeyPairProvider::KeyPair::KeyPair(BIGNUM *_priv, BIGNUM *_pub, bool _compressed): priv(_priv), pub(_pub), compressed(_compressed), priv_hex(NULL), pub_hex(NULL), wif(NULL), p2pkh_b58check(NULL) {
@@ -132,7 +146,7 @@ std::optional<std::string_view> KeyPairProvider::KeyPair::getWIF() const {
   }
 
   memcpy(bin + len + 1 + (compressed ? 1 : 0), hash, 4);
-  
+
   size_t b58sz = 53;
   wif = (char*)malloc(b58sz);
   if (!wif) {
@@ -189,7 +203,7 @@ std::optional<std::string_view> KeyPairProvider::KeyPair::getP2PKH() const {
   }
 
   memcpy(hash + RIPEMD160_DIGEST_LENGTH + 1, hash_tmp, 4);
-  
+
   size_t p2pkh_len = 50; // 36 should be enough
   p2pkh_b58check = (char*)malloc(p2pkh_len);
   if (!p2pkh_b58check) {
