@@ -1,0 +1,3 @@
+[submodule "btc_keys/libbase58"]
+	path = btc_keys/libbase58
+	url = https://github.com/bitcoin/libbase58.git
