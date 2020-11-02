@@ -29,11 +29,13 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getRandomPair(bool comp
 
   BN_priv_rand(priv_key, 256, BN_RAND_TOP_ONE, BN_RAND_BOTTOM_ANY);
 
+//  EC_KEY_set_private_key(eckey, priv_key);
+
   if (!EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx)) {
     return std::nullopt; 
   }
 
-  EC_KEY_set_public_key(eckey, pub_key);
+//  EC_KEY_set_public_key(eckey, pub_key);
 
   BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, ctx);
 
@@ -49,11 +51,13 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::st
 
   BN_hex2bn(&priv_key, priv_hex.data());
 
+//  EC_KEY_set_private_key(eckey, priv_key);
+
   if (!EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx)) {
     return std::nullopt; 
   }
 
-  EC_KEY_set_public_key(eckey, pub_key);
+//  EC_KEY_set_public_key(eckey, pub_key);
 
   BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, ctx);
 
