@@ -25,18 +25,21 @@ KeyPairProvider::~KeyPairProvider() {
 std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getRandomPair(bool compressed) const {
   const EC_GROUP *group = EC_KEY_get0_group(eckey);
   EC_POINT *pub_key = EC_POINT_new(group);
+  if (!pub_key) return std::nullopt;
+
   BIGNUM *priv_key = BN_new();
+  if (!priv_key) {
+    EC_POINT_free(pub_key);
+    return std::nullopt;
+  }
 
-  BN_priv_rand(priv_key, 256, BN_RAND_TOP_ONE, BN_RAND_BOTTOM_ANY);
-
-//  EC_KEY_set_private_key(eckey, priv_key);
-
-  if (!EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx)) {
+  if (!BN_priv_rand(priv_key, 256, BN_RAND_TOP_ONE, BN_RAND_BOTTOM_ANY) || !EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx)) {
     EC_POINT_free(pub_key);
     BN_free(priv_key);
     return std::nullopt;
   }
 
+//  EC_KEY_set_private_key(eckey, priv_key);
 //  EC_KEY_set_public_key(eckey, pub_key);
 
   BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, ctx);
@@ -54,18 +57,21 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getRandomPair(bool comp
 std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::string_view priv_hex, bool compressed) const {
   const EC_GROUP *group = EC_KEY_get0_group(eckey);
   EC_POINT *pub_key = EC_POINT_new(group);
+  if (!pub_key) return std::nullopt;
+
   BIGNUM *priv_key = BN_new();
+  if (!priv_key) {
+    EC_POINT_free(pub_key);
+    return std::nullopt;
+  }
 
-  BN_hex2bn(&priv_key, priv_hex.data());
-
-//  EC_KEY_set_private_key(eckey, priv_key);
-
-  if (!EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx)) {
+  if (!BN_hex2bn(&priv_key, priv_hex.data()) || !EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx)) {
     EC_POINT_free(pub_key);
     BN_free(priv_key);
     return std::nullopt;
   }
 
+//  EC_KEY_set_private_key(eckey, priv_key);
 //  EC_KEY_set_public_key(eckey, pub_key);
 
   BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, ctx);
@@ -123,9 +129,8 @@ std::optional<std::string_view> KeyPairProvider::KeyPair::getWIF() const {
   if (wif) return wif;
   size_t len = BN_num_bytes(priv);
   unsigned char *bin = (unsigned char *)malloc(len + 1 + (compressed ? 1 : 0) + 4);
-  if (!bin) {
-    return std::nullopt;
-  }
+  if (!bin) return std::nullopt;
+
   if (!BN_bn2bin(priv, bin + 1)) {
     free(bin);
     return std::nullopt;
@@ -171,9 +176,8 @@ std::optional<std::string_view> KeyPairProvider::KeyPair::getP2PKH() const {
 
   size_t len = BN_num_bytes(pub);
   unsigned char *bin = (unsigned char *)malloc(len);
-  if (!bin) {
-    return std::nullopt;
-  }
+  if (!bin) return std::nullopt;
+
   if (!BN_bn2bin(pub, bin)) {
     free(bin);
     return std::nullopt;
