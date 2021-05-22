@@ -1,11 +1,9 @@
-#include <signal.h>
-
 #include <sighandlers.h>
 
 namespace sighandlers {
   struct sigaction sgact;
 
-  bool flagToExit = false;
+  std::atomic_bool flagToExit = false;
 
 bool setSigHandlers() {
   sigemptyset(&sgact.sa_mask);

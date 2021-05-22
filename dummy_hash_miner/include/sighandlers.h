@@ -2,8 +2,10 @@
 
 #include <signal.h>
 
+#include <atomic>
+
 namespace sighandlers {
-  extern bool flagToExit;
+  extern std::atomic_bool flagToExit;
 
   bool setSigHandlers();
 
