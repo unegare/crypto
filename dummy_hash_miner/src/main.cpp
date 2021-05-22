@@ -6,7 +6,7 @@
 #include <ranges>
 #include <boost/format.hpp>
 
-#include <task.h>
+#include <miner.h>
 #include <sighandlers.h>
 #include <log.h>
 

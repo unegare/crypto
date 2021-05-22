@@ -5,7 +5,7 @@
 #include <chrono>
 #include <new>
 
-#include <task.h>
+#include <miner.h>
 #include <log.h>
 #include <sighandlers.h>
 
