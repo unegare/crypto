@@ -51,6 +51,9 @@ int main(int argc, char *argv[]) {
 
   BOOST_LOG_TRIVIAL(info) << "{\n\t\"message\": \"exit...\"\n}";
 
+  lk.unlock();
+  for (auto& el : ths) el.join();
+
   if (argc >= 2) {
     std::ofstream file(argv[1]);
     if (file.is_open()) {
@@ -71,8 +74,6 @@ int main(int argc, char *argv[]) {
     BOOST_LOG_TRIVIAL(info) << R"({"message": "argc < 2 ???"})";
   }
 
-  for (auto& el : ths) el.join();
-//  for (const auto& el : miner::messages) delete el;
   miner::messages.clear();
   return 0;
 }
