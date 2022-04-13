@@ -142,15 +142,23 @@ bool KeyPairProvider::KeyPair::derivePublic() {
 
   const EC_GROUP *group = EC_KEY_get0_group(eckey);
   EC_POINT *pub_key = EC_POINT_new(group);
-  if (!pub_key) return false;
+  if (!pub_key) {
+    BN_CTX_free(ctx);
+    EC_KEY_free(eckey);
+    return false;
+  }
   if (!EC_POINT_mul(group, pub_key, priv, NULL, NULL, ctx)) {
     EC_POINT_free (pub_key);
+    BN_CTX_free(ctx);
+    EC_KEY_free(eckey);
     return false;
   }
 
   BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, ctx);
   if (!pub_bn) {
     EC_POINT_free(pub_key);
+    BN_CTX_free(ctx);
+    EC_KEY_free(eckey);
     return false;
   }
 
