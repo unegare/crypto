@@ -1,11 +1,12 @@
+CXX=g++-10
 CFLAGS+=-Wall -O2 -std=c99
-CXXFLAGS+=-Wall -O2 -std=c++17
+CXXFLAGS+=-Wall -O2 -std=c++20
 LDFLAGS+=-lstdc++ -lssl -lcrypto
 
 .PHONY: all
-all: main.o KeyPairProvider.o libbase58/base58.o
-	${CC} $^ ${LDFLAGS}
+all: main.o miner.o KeyPairProvider.o libbase58/base58.o hash-library/keccak.o
+	$(CXX) $^ ${LDFLAGS}
 
 .PHONY: clean
 clean:
-	${RM} -f *~ *.o ./**/*.o a.out
+	$(RM) -f *~ *.o ./**/*.o a.out

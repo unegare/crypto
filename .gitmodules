@@ -1,3 +1,6 @@
 [submodule "btc_keys/libbase58"]
 	path = btc_keys/libbase58
 	url = https://github.com/bitcoin/libbase58.git
+[submodule "btc_keys/hash-library"]
+	path = btc_keys/hash-library
+	url = https://github.com/stbrumme/hash-library.git

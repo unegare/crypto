@@ -1,6 +1,5 @@
 #include <iostream>
 #include <ostream>
-#include <string_view>
 #include <cstdlib>
 #include <cstring>
 
@@ -9,6 +8,8 @@
 #include <openssl/ripemd.h>
 
 #include "libbase58/libbase58.h"
+
+#include "hash-library/keccak.h"
 
 #include "KeyPairProvider.h"
 
@@ -86,16 +87,17 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::st
   return KeyPair(priv_key, pub_bn, compressed);
 }
 
-KeyPairProvider::KeyPair::KeyPair(BIGNUM *_priv, BIGNUM *_pub, bool _compressed): priv(_priv), pub(_pub), compressed(_compressed), priv_hex(NULL), pub_hex(NULL), wif(NULL), p2pkh_b58check(NULL) {
+KeyPairProvider::KeyPair::KeyPair(BIGNUM *_priv, BIGNUM *_pub, bool _compressed): priv(_priv), pub(_pub), compressed(_compressed), priv_hex(NULL), pub_hex(NULL), wif(NULL), p2pkh_b58check(NULL), eth_addr(NULL) {
 }
 
-KeyPairProvider::KeyPair::KeyPair(KeyPair &&kp): priv(kp.priv), pub(kp.pub), compressed(kp.compressed), priv_hex(kp.priv_hex), pub_hex(kp.pub_hex), wif(kp.wif), p2pkh_b58check(kp.p2pkh_b58check) {
+KeyPairProvider::KeyPair::KeyPair(KeyPair &&kp): priv(kp.priv), pub(kp.pub), compressed(kp.compressed), priv_hex(kp.priv_hex), pub_hex(kp.pub_hex), wif(kp.wif), p2pkh_b58check(kp.p2pkh_b58check), eth_addr(kp.eth_addr) {
   kp.priv = NULL;
   kp.pub = NULL;
   kp.priv_hex = NULL;
   kp.pub_hex = NULL;
   kp.wif = NULL;
   kp.p2pkh_b58check = NULL;
+  kp.eth_addr = NULL;
 }
 
 KeyPairProvider::KeyPair::~KeyPair() {
@@ -105,6 +107,71 @@ KeyPairProvider::KeyPair::~KeyPair() {
   free(pub_hex);
   free(wif);
   free(p2pkh_b58check);
+  free(eth_addr);
+}
+
+bool KeyPairProvider::KeyPair::inc() {
+  if (!priv) {
+    return false;
+  }
+
+  if (!BN_add(priv, priv, BN_value_one())) {
+    return false;
+  }
+
+  if (!derivePublic()) {
+    if (!BN_sub(priv, priv, BN_value_one())) {
+      std::cerr << __PRETTY_FUNCTION__ << ": failed to derive : failed to decrement back";
+      return false;
+    }
+    return false;
+  }
+
+  reset();
+
+  return true;
+}
+
+bool KeyPairProvider::KeyPair::derivePublic() {
+  if (!priv) {
+    return false;
+  }
+
+  auto ctx = BN_CTX_new();
+  auto eckey = EC_KEY_new_by_curve_name(NID_secp256k1);
+
+  const EC_GROUP *group = EC_KEY_get0_group(eckey);
+  EC_POINT *pub_key = EC_POINT_new(group);
+  if (!pub_key) return false;
+  if (!EC_POINT_mul(group, pub_key, priv, NULL, NULL, ctx)) {
+    EC_POINT_free (pub_key);
+    return false;
+  }
+
+  BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, ctx);
+  if (!pub_bn) {
+    EC_POINT_free(pub_key);
+    return false;
+  }
+
+  BN_free(pub);
+  pub = pub_bn;
+
+  return true;
+}
+
+void KeyPairProvider::KeyPair::reset() {
+  free(priv_hex);
+  free(pub_hex);
+  free(wif);
+  free(p2pkh_b58check);
+  free(eth_addr);
+
+  priv_hex = NULL;
+  pub_hex = NULL;
+  wif = NULL;
+  p2pkh_b58check = NULL;
+  eth_addr = NULL;
 }
 
 std::optional<std::string_view> KeyPairProvider::KeyPair::getPrivHex() const {
@@ -223,10 +290,75 @@ std::optional<std::string_view> KeyPairProvider::KeyPair::getP2PKH() const {
   return p2pkh_b58check;
 }
 
+std::optional<std::string_view> KeyPairProvider::KeyPair::getEthAddr() const {
+  if (eth_addr) return eth_addr;
+
+  size_t len = BN_num_bytes(pub);
+  unsigned char *bin = (unsigned char *)malloc(len);
+  if (!bin) return std::nullopt;
+
+  if (!BN_bn2bin(pub, bin)) {
+    free(bin);
+    return std::nullopt;
+  }
+
+  if (bin[0] != 4) { // pubkey must be uncompressed
+    free(bin);
+    return std::nullopt;
+  }
+
+  Keccak keccak;
+  std::string hash = keccak(bin +1, len -1);
+  free(bin);
+  if (hash.length() != 64) { // since it is without 0x
+    return std::nullopt;
+  }
+  eth_addr = (char *)malloc(43 * sizeof(char));
+  if (!eth_addr) {
+    return std::nullopt;
+  }
+
+  eth_addr[0] = '0';
+  eth_addr[1] = 'x';
+  memcpy(eth_addr +2, hash.c_str() +64 - 40, 40);
+  eth_addr[42] = '\0';
+
+  return eth_addr;
+}
+
+KeyPairProvider::KeyPair& KeyPairProvider::KeyPair::operator=(KeyPairProvider::KeyPair&& kp) {
+  BN_free(priv);
+  BN_free(pub);
+  free(priv_hex);
+  free(pub_hex);
+  free(wif);
+  free(p2pkh_b58check);
+  free(eth_addr);
+
+  priv = kp.priv;
+  pub  = kp.pub;
+  priv_hex = kp.priv_hex;
+  pub_hex = kp.pub_hex;
+  wif = kp.wif;
+  p2pkh_b58check = kp.p2pkh_b58check;
+  eth_addr = kp.eth_addr;
+
+  kp.priv = NULL;
+  kp.pub = NULL;
+  kp.priv_hex = NULL;
+  kp.pub_hex = NULL;
+  kp.wif = NULL;
+  kp.p2pkh_b58check = NULL;
+  kp.eth_addr = NULL;
+
+  return *this;
+}
+
 std::ostream& operator<< (std::ostream &os, const KeyPairProvider::KeyPair &k) {
-  os << "priv_hex: " << k.getPrivHex().value_or("Err") << "\n"
-     << "pub_hex: " << k.getPubHex().value_or("Err") << "\n"
-     << "WIF: " << k.getWIF().value_or("Err") << "\n"
-     << "P2PKH: " << k.getP2PKH().value_or("Err") << "\n";
+  os << "priv_hex: " << k.getPrivHex().value_or("Err") << '\n'
+     << "pub_hex: " << k.getPubHex().value_or("Err") << '\n'
+     << "WIF: " << k.getWIF().value_or("Err") << '\n'
+     << "P2PKH: " << k.getP2PKH().value_or("Err") << '\n'
+     << "eth_addr: " << k.getEthAddr().value_or("Err") << '\n';
   return os;
 }
