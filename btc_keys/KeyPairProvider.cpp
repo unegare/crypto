@@ -155,6 +155,8 @@ bool KeyPairProvider::KeyPair::derivePublic() {
   }
 
   BN_free(pub);
+  BN_CTX_free(ctx);
+  EC_KEY_free(eckey);
   pub = pub_bn;
 
   return true;
