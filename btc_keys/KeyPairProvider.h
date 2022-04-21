@@ -3,18 +3,27 @@
 
 #include <optional>
 #include <string_view>
+#include <memory>
 
 #include <openssl/ec.h>
 #include <openssl/bn.h>
 
 class KeyPairProvider {
-  mutable BN_CTX *ctx;
-  mutable EC_KEY *eckey;
+//  mutable BN_CTX *ctx;
+//  mutable EC_KEY *eckey;
+
+// s_ptr.get() always returns NON-const ptr
+  std::shared_ptr<BN_CTX> ctx; // since all stuff is done via s_ptr.get() there is no need to make it mutable
+  std::shared_ptr<EC_KEY> eckey; // since all stuff is done via s_ptr.get() there is no need to make it mutable
 public:
   KeyPairProvider();
   ~KeyPairProvider();
 
   typedef class KeyPair {
+//    std::weak_ptr<BN_CTX> w_ctx;
+//    std::weak_ptr<EC_KEY> w_eckey;
+    std::shared_ptr<BN_CTX> s_ctx; // since all stuff is done via s_ptr.get() there is no need to make it mutable
+    std::shared_ptr<EC_KEY> s_eckey; // since all stuff is done via s_ptr.get() there is no need to make it mutable
     BIGNUM *priv;
     BIGNUM *pub;
     bool compressed;
@@ -29,6 +38,8 @@ public:
     void reset();
     public:
       KeyPair(BIGNUM *_priv, BIGNUM *_pub, bool _compressed);
+//      KeyPair(std::weak_ptr<BN_CTX> _ctx, std::weak_ptr<EC_KEY> _eckey, BIGNUM *_priv, BIGNUM *_pub, bool _compressed);
+      KeyPair(std::shared_ptr<BN_CTX> _ctx, std::shared_ptr<EC_KEY> _eckey, BIGNUM *_priv, BIGNUM *_pub, bool _compressed);
       KeyPair(KeyPair &&kp);
       ~KeyPair();
 

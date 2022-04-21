@@ -13,18 +13,18 @@
 
 #include "KeyPairProvider.h"
 
-KeyPairProvider::KeyPairProvider() {
-  ctx = BN_CTX_new();
-  eckey = EC_KEY_new_by_curve_name(NID_secp256k1);
+KeyPairProvider::KeyPairProvider(): ctx(BN_CTX_new(), BN_CTX_free), eckey(EC_KEY_new_by_curve_name(NID_secp256k1), EC_KEY_free) {
+//  ctx = BN_CTX_new();
+//  eckey = EC_KEY_new_by_curve_name(NID_secp256k1);
 }
 
 KeyPairProvider::~KeyPairProvider() {
-  BN_CTX_free(ctx);
-  EC_KEY_free(eckey);
+//  BN_CTX_free(ctx);
+//  EC_KEY_free(eckey);
 }
 
 std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getRandomPair(bool compressed) const {
-  const EC_GROUP *group = EC_KEY_get0_group(eckey);
+  const EC_GROUP *group = EC_KEY_get0_group(eckey.get());
   EC_POINT *pub_key = EC_POINT_new(group);
   if (!pub_key) return std::nullopt;
 
@@ -34,7 +34,7 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getRandomPair(bool comp
     return std::nullopt;
   }
 
-  if (!BN_priv_rand(priv_key, 256, BN_RAND_TOP_ONE, BN_RAND_BOTTOM_ANY) || !EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx)) {
+  if (!BN_priv_rand(priv_key, 256, BN_RAND_TOP_ONE, BN_RAND_BOTTOM_ANY) || !EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx.get())) {
     EC_POINT_free(pub_key);
     BN_free(priv_key);
     return std::nullopt;
@@ -43,7 +43,7 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getRandomPair(bool comp
 //  EC_KEY_set_private_key(eckey, priv_key);
 //  EC_KEY_set_public_key(eckey, pub_key);
 
-  BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, ctx);
+  BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, ctx.get());
   if (!pub_bn) {
     EC_POINT_free(pub_key);
     BN_free(priv_key);
@@ -52,11 +52,11 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getRandomPair(bool comp
 
   EC_POINT_free (pub_key);
 
-  return KeyPair(priv_key, pub_bn, compressed);
+  return KeyPair(ctx, eckey, priv_key, pub_bn, compressed);
 }
 
 std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::string_view priv_hex, bool compressed) const {
-  const EC_GROUP *group = EC_KEY_get0_group(eckey);
+  const EC_GROUP *group = EC_KEY_get0_group(eckey.get());
   EC_POINT *pub_key = EC_POINT_new(group);
   if (!pub_key) return std::nullopt;
 
@@ -66,7 +66,7 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::st
     return std::nullopt;
   }
 
-  if (!BN_hex2bn(&priv_key, priv_hex.data()) || !EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx)) {
+  if (!BN_hex2bn(&priv_key, priv_hex.data()) || !EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx.get())) {
     EC_POINT_free(pub_key);
     BN_free(priv_key);
     return std::nullopt;
@@ -75,7 +75,7 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::st
 //  EC_KEY_set_private_key(eckey, priv_key);
 //  EC_KEY_set_public_key(eckey, pub_key);
 
-  BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, ctx);
+  BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, ctx.get());
   if (!pub_bn) {
     EC_POINT_free(pub_key);
     BN_free(priv_key);
@@ -84,13 +84,26 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::st
 
   EC_POINT_free (pub_key);
 
-  return KeyPair(priv_key, pub_bn, compressed);
+  return KeyPair(ctx, eckey, priv_key, pub_bn, compressed);
 }
 
-KeyPairProvider::KeyPair::KeyPair(BIGNUM *_priv, BIGNUM *_pub, bool _compressed): priv(_priv), pub(_pub), compressed(_compressed), priv_hex(NULL), pub_hex(NULL), wif(NULL), p2pkh_b58check(NULL), eth_addr(NULL) {
+KeyPairProvider::KeyPair::KeyPair(BIGNUM *_priv, BIGNUM *_pub, bool _compressed):
+    s_ctx(BN_CTX_new(), BN_CTX_free), s_eckey(EC_KEY_new_by_curve_name(NID_secp256k1), EC_KEY_free),
+    priv(_priv), pub(_pub), compressed(_compressed), priv_hex(NULL), pub_hex(NULL), wif(NULL), p2pkh_b58check(NULL), eth_addr(NULL) {
 }
 
-KeyPairProvider::KeyPair::KeyPair(KeyPair &&kp): priv(kp.priv), pub(kp.pub), compressed(kp.compressed), priv_hex(kp.priv_hex), pub_hex(kp.pub_hex), wif(kp.wif), p2pkh_b58check(kp.p2pkh_b58check), eth_addr(kp.eth_addr) {
+KeyPairProvider::KeyPair::KeyPair(std::shared_ptr<BN_CTX> _ctx, std::shared_ptr<EC_KEY> _eckey, BIGNUM *_priv, BIGNUM *_pub, bool _compressed):
+    s_ctx(std::move(_ctx)), s_eckey(std::move(_eckey)),
+    priv(_priv), pub(_pub), compressed(_compressed), priv_hex(NULL), pub_hex(NULL), wif(NULL), p2pkh_b58check(NULL), eth_addr(NULL) {
+}
+
+//KeyPairProvider::KeyPair::KeyPair(std::weak_ptr<BN_CTX> _ctx, std::weak_ptr<EC_KEY> _eckey, BIGNUM *_priv, BIGNUM *_pub, bool _compressed):
+//    w_ctx(_ctx), w_eckey(_eckey),
+//    priv(_priv), pub(_pub), compressed(_compressed), priv_hex(NULL), pub_hex(NULL), wif(NULL), p2pkh_b58check(NULL), eth_addr(NULL) {
+//}
+
+//KeyPairProvider::KeyPair::KeyPair(KeyPair &&kp): w_ctx(kp.w_ctx), w_eckey(kp.w_eckey), priv(kp.priv), pub(kp.pub), compressed(kp.compressed), priv_hex(kp.priv_hex), pub_hex(kp.pub_hex), wif(kp.wif), p2pkh_b58check(kp.p2pkh_b58check), eth_addr(kp.eth_addr) {
+KeyPairProvider::KeyPair::KeyPair(KeyPair &&kp): s_ctx(std::move(kp.s_ctx)), s_eckey(std::move(kp.s_eckey)), priv(kp.priv), pub(kp.pub), compressed(kp.compressed), priv_hex(kp.priv_hex), pub_hex(kp.pub_hex), wif(kp.wif), p2pkh_b58check(kp.p2pkh_b58check), eth_addr(kp.eth_addr) {
   kp.priv = NULL;
   kp.pub = NULL;
   kp.priv_hex = NULL;
@@ -137,34 +150,42 @@ bool KeyPairProvider::KeyPair::derivePublic() {
     return false;
   }
 
-  auto ctx = BN_CTX_new();
-  auto eckey = EC_KEY_new_by_curve_name(NID_secp256k1);
+////  std::shared_ptr s_ctx(w_ctx.expired() ? BN_CTX_new() : w_ctx);
+//  std::shared_ptr s_ctx(w_ctx.lock());
+//  if (!s_ctx) {
+//    s_ctx = std::shared_ptr<BN_CTX>(BN_CTX_new(), BN_CTX_free);
+//  }
+////  std::shared_ptr s_eckey(w_eckey.expired() ? EC_KEY_new_by_curve_name(NID_secp256k1) : w_eckey);
+//  std::shared_ptr s_eckey(w_eckey.lock());
+//  if (!s_eckey) {
+//    s_eckey = std::shared_ptr<EC_KEY>(EC_KEY_new_by_curve_name(NID_secp256k1), EC_KEY_free);
+//  }
 
-  const EC_GROUP *group = EC_KEY_get0_group(eckey);
+  const EC_GROUP *group = EC_KEY_get0_group(s_eckey.get());
   EC_POINT *pub_key = EC_POINT_new(group);
   if (!pub_key) {
-    BN_CTX_free(ctx);
-    EC_KEY_free(eckey);
+//    BN_CTX_free(ctx);
+//    EC_KEY_free(eckey);
     return false;
   }
-  if (!EC_POINT_mul(group, pub_key, priv, NULL, NULL, ctx)) {
+  if (!EC_POINT_mul(group, pub_key, priv, NULL, NULL, s_ctx.get())) {
     EC_POINT_free (pub_key);
-    BN_CTX_free(ctx);
-    EC_KEY_free(eckey);
+//    BN_CTX_free(ctx);
+//    EC_KEY_free(eckey);
     return false;
   }
 
-  BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, ctx);
+  BIGNUM *pub_bn = EC_POINT_point2bn(group, pub_key, compressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED, NULL, s_ctx.get());
   if (!pub_bn) {
     EC_POINT_free(pub_key);
-    BN_CTX_free(ctx);
-    EC_KEY_free(eckey);
+//    BN_CTX_free(ctx);
+//    EC_KEY_free(eckey);
     return false;
   }
 
   BN_free(pub);
-  BN_CTX_free(ctx);
-  EC_KEY_free(eckey);
+//  BN_CTX_free(ctx);
+//  EC_KEY_free(eckey);
   pub = pub_bn;
 
   return true;
