@@ -50,6 +50,7 @@ public:
       std::optional<std::string_view> getEthAddr() const;
 
       bool inc();
+      bool add(BIGNUM *bn);
 
       KeyPair& operator=(KeyPair&&);
   } KeyPair;

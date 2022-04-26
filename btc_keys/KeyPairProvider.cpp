@@ -145,6 +145,26 @@ bool KeyPairProvider::KeyPair::inc() {
   return true;
 }
 
+bool KeyPairProvider::KeyPair::add(BIGNUM *bn) {
+  if (!bn) {
+    return false;
+  }
+  if(!BN_add(priv, priv, bn)) {
+    return false;
+  }
+  if (!derivePublic()) {
+    if (!BN_sub(priv, priv, bn)) {
+      std::cerr << __PRETTY_FUNCTION__ << ": failed to derive : failed to roll back";
+      return false;
+    }
+    return false;
+  }
+
+  reset();
+
+  return true;
+}
+
 bool KeyPairProvider::KeyPair::derivePublic() {
   if (!priv) {
     return false;
