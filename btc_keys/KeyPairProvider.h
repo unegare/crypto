@@ -2,6 +2,7 @@
 #define KEYPAIRPROVIDER_H_
 
 #include <optional>
+#include <string>
 #include <string_view>
 #include <memory>
 
@@ -56,7 +57,7 @@ public:
   } KeyPair;
 
   std::optional<KeyPair> getRandomPair(bool compressed = 1) const;
-  std::optional<KeyPair> getPairWithPriv(std::string_view priv_hex, bool compressed = 1) const;
+  std::optional<KeyPair> getPairWithPriv(std::string priv_hex, bool compressed = 1) const;
 };
 
 std::ostream& operator<< (std::ostream &os, const KeyPairProvider::KeyPair &k);

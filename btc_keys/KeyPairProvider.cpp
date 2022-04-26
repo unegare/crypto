@@ -55,7 +55,7 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getRandomPair(bool comp
   return KeyPair(ctx, eckey, priv_key, pub_bn, compressed);
 }
 
-std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::string_view priv_hex, bool compressed) const {
+std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::string priv_hex, bool compressed) const {
   const EC_GROUP *group = EC_KEY_get0_group(eckey.get());
   EC_POINT *pub_key = EC_POINT_new(group);
   if (!pub_key) return std::nullopt;
@@ -66,7 +66,7 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::st
     return std::nullopt;
   }
 
-  if (!BN_hex2bn(&priv_key, std::string(priv_hex).c_str()) || !EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx.get())) {
+  if (!BN_hex2bn(&priv_key, priv_hex.c_str()) || !EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx.get())) {
     EC_POINT_free(pub_key);
     BN_free(priv_key);
     return std::nullopt;

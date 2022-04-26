@@ -17,7 +17,7 @@
 std::optional<KeyPairProvider::KeyPair> ethMiner(std::string_view pattern, std::optional<std::string_view> priv_start, unsigned char step, bool next) {
   using KeyPair = KeyPairProvider::KeyPair;
   KeyPairProvider kpp;
-  std::optional<KeyPair> okp = priv_start.has_value() ? kpp.getPairWithPriv(priv_start.value(), false) : kpp.getRandomPair(false);
+  std::optional<KeyPair> okp = priv_start.has_value() ? kpp.getPairWithPriv(std::string(priv_start.value()), false) : kpp.getRandomPair(false);
   if (!okp) {
     return std::nullopt;
   }
