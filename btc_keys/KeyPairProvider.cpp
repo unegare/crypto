@@ -66,7 +66,7 @@ std::optional<KeyPairProvider::KeyPair> KeyPairProvider::getPairWithPriv(std::st
     return std::nullopt;
   }
 
-  if (!BN_hex2bn(&priv_key, priv_hex.data()) || !EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx.get())) {
+  if (!BN_hex2bn(&priv_key, std::string(priv_hex).c_str()) || !EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx.get())) {
     EC_POINT_free(pub_key);
     BN_free(priv_key);
     return std::nullopt;

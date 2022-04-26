@@ -6,6 +6,6 @@
 
 int main() {
   EthAddrMiner eam;
-  eam.mine("0xffffff", 16);
+  eam.mine("0xffff", 16, "0000000000000000000000000000000000000000000000000000000000000001");
   return 0;
 }

@@ -3,7 +3,7 @@
 
 #include "KeyPairProvider.h"
 
-std::optional<KeyPairProvider::KeyPair> ethMiner(std::string_view pattern, std::optional<std::string_view> priv_start = std::nullopt, unsigned char step = 1);
+std::optional<KeyPairProvider::KeyPair> ethMiner(std::string_view pattern, std::optional<std::string_view> priv_start = std::nullopt, unsigned char step = 1, bool next = false);
 
 class EthAddrMiner {
   KeyPairProvider kpp;
