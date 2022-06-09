@@ -1,6 +1,7 @@
 #include <endian.h>
 
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <vector>
 #include <memory>
@@ -14,7 +15,7 @@
 
 #include "miner.h"
 
-std::optional<KeyPairProvider::KeyPair> ethMiner(std::string_view pattern, std::optional<std::string_view> priv_start, unsigned char step, bool next) {
+std::optional<KeyPairProvider::KeyPair> ethMiner(std::string_view pattern, std::optional<std::string_view> priv_start, unsigned char step, bool next, uint64_t *offset) {
   using KeyPair = KeyPairProvider::KeyPair;
   KeyPairProvider kpp;
   std::optional<KeyPair> okp = priv_start.has_value() ? kpp.getPairWithPriv(std::string(priv_start.value()), false) : kpp.getRandomPair(false);
@@ -22,7 +23,7 @@ std::optional<KeyPairProvider::KeyPair> ethMiner(std::string_view pattern, std::
     return std::nullopt;
   }
   KeyPair kp(std::move(okp.value()));
-  size_t num = 0;
+  uint64_t num = 0;
   std::optional<std::string_view> ethAddr;
   BIGNUM *step_bn = BN_new();
   if (!step_bn) {
@@ -50,8 +51,9 @@ std::optional<KeyPairProvider::KeyPair> ethMiner(std::string_view pattern, std::
     ethAddr = kp.getEthAddr();
     num++;
   }
-  std::cout << "num: " << num << std::endl;
+//  std::cout << "num: " << num << std::endl;
   BN_free(step_bn);
+  if (offset) *offset = num * step;
   return kp;
 }
 
@@ -64,7 +66,10 @@ void EthAddrMiner::mine(std::string_view pttn, size_t thread_num, std::optional<
   std::condition_variable cv;
   std::mutex m;
   std::vector<KeyPair> solutions;
+  std::vector<uint32_t> solution_finders;
+  std::vector<uint64_t> offsets(thread_num);
   size_t recv_num = 0;
+  std::chrono::time_point time_start = std::chrono::high_resolution_clock::now();
   for (size_t i = 0; i < thread_num; i++) {
     thread_pool.emplace_back([&, i]() {
       char *start = NULL;
@@ -97,7 +102,9 @@ void EthAddrMiner::mine(std::string_view pttn, size_t thread_num, std::optional<
         BN_free(bn);
         BN_free(shift);
       }
-      std::optional<KeyPair> pair = ethMiner(pttn, start, thread_num, false);
+      uint64_t offset;
+      std::optional<KeyPair> pair = ethMiner(pttn, start, thread_num, false, &offset);
+      offsets[i] += offset;
       free(start);
       while(pair.has_value()) {
         if (!pair.value().getPrivHex().has_value()) {
@@ -109,9 +116,11 @@ void EthAddrMiner::mine(std::string_view pttn, size_t thread_num, std::optional<
         {
           std::scoped_lock lock(m);
           solutions.emplace_back(std::move(pair.value()));
+          solution_finders.push_back(i);
         }
         cv.notify_one();
-        pair = ethMiner(pttn, priv, thread_num, true);
+        pair = ethMiner(pttn, priv, thread_num, true, &offset);
+        offsets[i] += offset;
       }
       std::cout << std::this_thread::get_id() << " thread finished" << std::endl;
     });
@@ -120,11 +129,12 @@ void EthAddrMiner::mine(std::string_view pttn, size_t thread_num, std::optional<
   while(1) {
     std::unique_lock lock(m);
     cv.wait(lock, [&]{return solutions.size() > recv_num;});
+    std::chrono::time_point time_recv = std::chrono::high_resolution_clock::now();
     while (recv_num < solutions.size()) {
+      std::cout << solution_finders[recv_num] << ": offset == " << std::setw(10) << offsets[solution_finders[recv_num]] << " | " << std::chrono::duration_cast<std::chrono::milliseconds>(time_recv - time_start).count() << " ms\n";
       std::cout << solutions[recv_num] << std::endl;
       recv_num++;
     }
   }
-
 }
 
